@@ -134,7 +134,7 @@ class ModelBsmMC(ModelABC):
         X_1 = np.random.standard_normal((n_dt, self.n_path)) # normal variable X_1, indepent with Z_1
         W_1 = self.rho*Z_1 + np.sqrt(1-self.rho**2)*X_1  # normal variable W_1, correlated with Z_1 of rho
         #这里有一个问题，sigma_t和S_t会差一期，导致会有浪费的sigma_t
-        sigma_times_W_accumulation =  np.cumsum(W_1 * np.sqrt(dt) * self.sigma * vol_path[:-1], axis=0)
+        sigma_times_W_accumulation = np.cumsum(W_1 * np.sqrt(dt) * self.sigma * vol_path[:-1], axis=0)
         sigma_squared_accumulation = np.cumsum(np.square(self.sigma * vol_path[:-1]), axis=0)
         S_t = spot * np.exp(sigma_times_W_accumulation - 1/2*sigma_squared_accumulation*dt)
         S_t = np.insert(S_t, 0, spot*np.ones(S_t.shape[1]), axis=0)
@@ -221,10 +221,12 @@ class ModelBsmCondMC(ModelBsmMC):
         I_t = self.intvar_normalized(vol_path)
 
         # (2) Calculate the equivalent spot and volatility of the BS model
+        
+        spot_equiv = spot * np.exp(self.rho/self.vov * (sigma_t-self.sigma) - 
+                                  self.rho**2 * self.sigma**2 * texp/2 * I_t)
         vol = self.sigma * np.sqrt((1-self.rho**2) * I_t)
-        spot_equiv = spot * np.exp(self.rho/self.vov*(sigma_t-self.sigma) - 
-                                  self.rho**2*self.sigma**2 * texp/2 * I_t)
 
+        # (3) Calculate option prices (vector) by averaging the BS prices
         m = self.base_model(vol)  #BSM model
         p = np.mean(m.price(strike[:, None], spot_equiv, texp, cp), axis=1)
         
@@ -264,6 +266,7 @@ class ModelNormCondMC(ModelNormMC):
         vol = self.sigma * np.sqrt((1-self.rho**2) * I_t)
         spot_equiv = spot + self.rho/self.vov * (sigma_t-self.sigma)
 
+        # (3) Calculate option prices (vector) by averaging the BS prices
         m = self.base_model(vol)
         p = np.mean(m.price(strike[:, None], spot_equiv, texp, cp), axis=1)
         
